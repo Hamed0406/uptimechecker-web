@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UptimeChecker</title>
+
+  <!-- Pico.css (fully responsive, no custom CSS needed) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+  />
+</head>
+<body>
+  <main class="container">
+    <h1>UptimeChecker</h1>
+    <p class="muted">Add URLs and view the latest probe results</p>
+
+    <form id="addForm" role="group">
+      <input
+        id="urlInput"
+        type="url"
+        placeholder="https://example.com"
+        aria-label="Target URL"
+        required
+      />
+      <button id="addBtn" type="submit">Add</button>
+    </form>
+
+    <h2>Latest Results</h2>
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>Up</th>
+          <th>HTTP</th>
+          <th>Latency (ms)</th>
+          <th>Reason</th>
+          <th>Checked</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+
+    <h2>Targets</h2>
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>URL</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="targetsBody"></tbody>
+    </table>
+  </main>
+
+  <!-- Written at container start by docker/entrypoint.sh -->
+  <script src="config.js"></script>
+  <!-- App logic -->
+  <script src="app.js"></script>
+</body>
+</html>
