@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 set -eu
 
-# env -> config.js for the browser
 API_BASE="${API_BASE:-http://localhost:8080}"
 PUBLIC_API_KEY="${PUBLIC_API_KEY:-}"
 ADMIN_API_KEY="${ADMIN_API_KEY:-}"
@@ -14,5 +13,4 @@ window.CONFIG = {
 };
 EOF
 
-# hand off to nginx
 exec nginx -g "daemon off;"
