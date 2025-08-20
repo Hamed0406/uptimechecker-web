@@ -6,6 +6,6 @@ services:
     ports:
       - "8082:80"
     environment:
-      API_BASE: "http://localhost:8080"
-      PUBLIC_API_KEY: "pub_example_key"
-      ADMIN_API_KEY:  "adm_example_key"
+      API_BASE: ${API_BASE}
+      PUBLIC_API_KEY: ${PUBLIC_API_KEY}
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
