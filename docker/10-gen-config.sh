@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env sh
 set -eu
 
 API_BASE="${API_BASE:-http://localhost:8080}"
@@ -13,6 +13,4 @@ window.CONFIG = {
 };
 EOF
 
-echo "[entrypoint] API_BASE=${API_BASE} PUBLIC_KEY_set=$([ -n "$PUBLIC_API_KEY" ] && echo yes || echo no) ADMIN_KEY_set=$([ -n "$ADMIN_API_KEY" ] && echo yes || echo no)"
-
-exec nginx -g "daemon off;"
+# (The main nginx entrypoint will run after this script finishes)

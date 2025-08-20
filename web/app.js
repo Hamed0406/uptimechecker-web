@@ -1,99 +1,106 @@
-(() => {
-  const CFG = (window.CONFIG || {});
-  const API_BASE = CFG.API_BASE || "";           // e.g. "http://localhost:8080"
-  const API_KEY  = CFG.PUBLIC_API_KEY || "";     // your public key
+// Load runtime config from config.js
+const CFG = window.CONFIG || {};
+const API_BASE   = (CFG.API_BASE || "http://localhost:8080").trim();
+const PUBLIC_KEY = (CFG.PUBLIC_API_KEY || "").trim();
+const ADMIN_KEY  = (CFG.ADMIN_API_KEY  || "").trim();
 
-  async function api(path, opts = {}) {
-    const res = await fetch(API_BASE + path, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(API_KEY ? { "X-API-Key": API_KEY } : {}),
-      },
-      credentials: "omit",
-      ...opts,
+// Show what the page will use
+const statusDiv = document.getElementById("status");
+statusDiv.innerHTML = `
+  API: <code>${API_BASE}</code> · PUBLIC key: <strong>${PUBLIC_KEY ? "present" : "missing"}</strong> ·
+  ADMIN key: <strong>${ADMIN_KEY ? "present" : "missing"}</strong>
+`;
+console.info("[UptimeChecker Web] CONFIG:", {
+  API_BASE,
+  PUBLIC_KEY_present: PUBLIC_KEY.length > 0,
+  ADMIN_KEY_present: ADMIN_KEY.length > 0,
+});
+
+const json = (r) => r.json();
+const headersWith = (key) => ({
+  "Content-Type": "application/json",
+  "X-API-Key": key,
+});
+
+function td(text) { const e = document.createElement("td"); e.textContent = text; return e; }
+function tdLink(href, text) {
+  const a = document.createElement("a"); a.href = href; a.target = "_blank"; a.rel = "noreferrer"; a.textContent = text || href;
+  const e = document.createElement("td"); e.appendChild(a); return e;
+}
+
+async function loadLatest() {
+  try {
+    const res = await fetch(`${API_BASE}/api/results/latest`, { headers: headersWith(PUBLIC_KEY) });
+    if (!res.ok) throw new Error(`latest ${res.status}`);
+    const rows = await json(res);
+    const tbody = document.querySelector("#latest-table tbody");
+    tbody.innerHTML = "";
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+      tr.appendChild(tdLink(r.URL));
+      tr.appendChild(td(r.Up ? "✅" : "❌"));
+      tr.appendChild(td(r.HTTPStatus ?? ""));
+      tr.appendChild(td(Math.round(r.LatencyMS ?? 0)));
+      tr.appendChild(td(r.Reason ?? ""));
+      tr.appendChild(td(new Date(r.CheckedAt).toLocaleString()));
+      tbody.appendChild(tr);
     });
-
-    const text = await res.text();
-    let data;
-    try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-
-    return { ok: res.ok, status: res.status, data };
+  } catch (e) {
+    console.error("loadLatest failed:", e);
   }
+}
 
-  const $ = (sel) => document.querySelector(sel);
-
-  function b(v)   { return v ? "✅" : "❌"; }
-  function dt(s)  { try { return new Date(s).toLocaleString(); } catch { return s || ""; } }
-  function ms(n)  { return Math.round(n || 0); }
-
-  async function loadLatest() {
-    const { ok, data } = await api("/api/results/latest");
-    const body = $("#resultsBody");
-    body.innerHTML = "";
-    if (!ok || !Array.isArray(data)) return;
-
-    for (const r of data) {
+async function loadTargets() {
+  try {
+    const res = await fetch(`${API_BASE}/api/targets`, { headers: headersWith(PUBLIC_KEY) });
+    if (!res.ok) throw new Error(`targets ${res.status}`);
+    const rows = await json(res);
+    const tbody = document.querySelector("#targets-table tbody");
+    tbody.innerHTML = "";
+    rows.forEach(t => {
       const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td><a href="${r.URL}" target="_blank" rel="noreferrer">${r.URL}</a></td>
-        <td>${b(r.Up)}</td>
-        <td>${r.HTTPStatus ?? ""}</td>
-        <td>${ms(r.LatencyMS)}</td>
-        <td>${r.Reason ?? ""}</td>
-        <td>${dt(r.CheckedAt)}</td>
-      `;
-      body.appendChild(tr);
-    }
+      tr.appendChild(td(t.id));
+      tr.appendChild(tdLink(t.url));
+      tr.appendChild(td(new Date(t.created_at).toLocaleString()));
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    console.error("loadTargets failed:", e);
   }
+}
 
-  async function loadTargets() {
-    const { ok, data } = await api("/api/targets");
-    const body = $("#targetsBody");
-    body.innerHTML = "";
-    if (!ok || !Array.isArray(data)) return;
+async function addTarget(url) {
+  const keyToUse = ADMIN_KEY || PUBLIC_KEY; // your API requires ADMIN for POST
+  console.info("[UptimeChecker Web] POST /api/targets using key:",
+               keyToUse === ADMIN_KEY ? "ADMIN_KEY" : "PUBLIC_KEY");
 
-    for (const t of data) {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${t.id}</td>
-        <td><a href="${t.url}" target="_blank" rel="noreferrer">${t.url}</a></td>
-        <td>${dt(t.created_at)}</td>
-      `;
-      body.appendChild(tr);
-    }
-  }
-
-  async function addTarget(url) {
-    const { ok, status, data } = await api("/api/targets", {
+  try {
+    const res = await fetch(`${API_BASE}/api/targets`, {
       method: "POST",
+      headers: headersWith(keyToUse),
       body: JSON.stringify({ url }),
     });
-    if (!ok) {
-      alert(`Add failed: ${(data && data.error) || `HTTP ${status}`}`);
-      return;
+
+    if (res.status === 409) { alert("Already exists."); return; }
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`${res.status} ${body}`);
     }
     await Promise.all([loadLatest(), loadTargets()]);
+  } catch (e) {
+    console.error("addTarget failed:", e);
+    alert("Add failed: forbidden");
   }
+}
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const form  = $("#addForm");
-    const input = $("#urlInput");
+document.getElementById("add-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const url = document.getElementById("url-input").value.trim();
+  if (!url) return;
+  addTarget(url);
+  ev.target.reset();
+});
 
-    // IMPORTANT: prevent the full page reload
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      const url = input.value.trim();
-      if (!url) return;
-      addTarget(url);
-      input.value = "";
-    });
-
-    // Optional: prefill from ?url= (but do NOT auto-submit)
-    const qs = new URLSearchParams(location.search);
-    if (qs.get("url")) input.value = qs.get("url");
-
-    loadLatest();
-    loadTargets();
-    setInterval(loadLatest, 15000);
-  });
-})();
+loadLatest();
+loadTargets();
+setInterval(loadLatest, 15000);

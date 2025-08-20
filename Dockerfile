@@ -1,12 +1,14 @@
-FROM nginx:alpine
+FROM nginx:1.27-alpine
 
-# Static files
+# Copy static files
 COPY web/ /usr/share/nginx/html/
 
-# Config writer
+# Nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Runtime config generator
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Simple security headers & gzip via default nginx (optional to tweak)
-EXPOSE 80
 ENTRYPOINT ["/entrypoint.sh"]
